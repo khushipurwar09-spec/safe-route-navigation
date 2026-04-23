@@ -1,0 +1,20 @@
+{
+  "expo": {
+    "name": "Safe Route",
+    "slug": "safe-route-app",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "ios": {
+      "supportsTablet": true
+    },
+    "android": {
+      "package": "com.khushipurwar.saferoute"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "e9e8550b-061a-42a9-a54b-8c3419bf7d55"
+      }
+    }
+  }
+}

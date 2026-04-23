@@ -1,27 +1,45 @@
 import React, { useEffect, useState } from 'react';
-import { StyleSheet, View, Text, TouchableWithoutFeedback } from 'react-native';
-import MapView, { Marker, Polyline } from 'react-native-maps';
+import { StyleSheet, View, Text, TouchableWithoutFeedback, ActivityIndicator } from 'react-native';
+import MapView, { Marker, Polyline, PROVIDER_DEFAULT } from 'react-native-maps';
 import * as Location from 'expo-location';
 import api from '../services/api';
 
 export default function HomeScreen({ navigation, onHealthModeToggle }) {
   const [location, setLocation] = useState(null);
   const [refuges, setRefuges] = useState([]);
+  const [reports, setReports] = useState([]);
+  const [loadingText, setLoadingText] = useState('Finding your safe location...');
   const [lastTap, setLastTap] = useState(null);
 
   useEffect(() => {
     (async () => {
       let { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== 'granted') return;
+      if (status !== 'granted') {
+        setLoadingText('Location permission denied.');
+        return;
+      }
 
-      let loc = await Location.getCurrentPositionAsync({});
-      setLocation(loc.coords);
+      // 1. FAST LOAD: Use last known location immediately so map renders quickly
+      let lastLoc = await Location.getLastKnownPositionAsync({});
+      if (lastLoc) {
+        setLocation(lastLoc.coords);
+        setLoadingText('Fetching live incidents...');
+      }
 
+      // 2. ACCURATE LOAD: Then fetch the highly accurate location
+      let currentLoc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+      setLocation(currentLoc.coords);
+
+      // 3. FETCH DATA: Load safe refuges and user reports (incidents) simultaneously
       try {
-        const res = await api.get(`/refuges/nearby?lat=${loc.coords.latitude}&lng=${loc.coords.longitude}`);
-        setRefuges(res.data);
+        const [refugesRes, reportsRes] = await Promise.all([
+          api.get(`/refuges/nearby?lat=${currentLoc.coords.latitude}&lng=${currentLoc.coords.longitude}`),
+          api.get('/reports')
+        ]);
+        setRefuges(refugesRes.data);
+        setReports(reportsRes.data);
       } catch (error) {
-        console.error("Failed to load refuges", error);
+        console.error("Failed to load map data", error);
       }
     })();
   }, []);
@@ -42,28 +60,44 @@ export default function HomeScreen({ navigation, onHealthModeToggle }) {
         {location ? (
           <MapView
             style={styles.map}
+            provider={PROVIDER_DEFAULT}
             initialRegion={{
               latitude: location.latitude,
               longitude: location.longitude,
-              latitudeDelta: 0.05,
-              longitudeDelta: 0.05,
+              latitudeDelta: 0.015, // Zoomed in closer for better navigation UX
+              longitudeDelta: 0.015,
             }}
             showsUserLocation={true}
+            showsMyLocationButton={true}
+            showsCompass={true}
           >
+            {/* Render Safe Refuges (Green) */}
             {refuges.map((refuge, index) => (
               <Marker
-                key={index}
+                key={`refuge-${index}`}
                 coordinate={{ latitude: refuge.lat, longitude: refuge.lng }}
                 title={refuge.name}
                 description={refuge.type}
-                pinColor="green"
+                pinColor="#2ecc71"
               />
             ))}
-            {/* Example safe route polyline */}
-            <Polyline coordinates={[]} strokeColor="#00f" strokeWidth={4} />
+            
+            {/* Render Incidents / Reports (Red) */}
+            {reports.map((report, index) => (
+              <Marker
+                key={`report-${index}`}
+                coordinate={{ latitude: report.lat, longitude: report.lng }}
+                title={`Incident: ${report.type}`}
+                description={report.description}
+                pinColor="#e74c3c"
+              />
+            ))}
           </MapView>
         ) : (
-          <View style={{flex: 1, justifyContent: 'center', alignItems: 'center'}}><Text>Loading Map...</Text></View>
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color="#ff7675" />
+            <Text style={styles.loadingText}>{loadingText}</Text>
+          </View>
         )}
       </View>
     </TouchableWithoutFeedback>
@@ -71,6 +105,8 @@ export default function HomeScreen({ navigation, onHealthModeToggle }) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1 },
+  container: { flex: 1, backgroundColor: '#f8f9fa' },
   map: { width: '100%', height: '100%' },
+  loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#ffffff' },
+  loadingText: { marginTop: 15, fontSize: 16, color: '#2d3436', fontWeight: '600' }
 });

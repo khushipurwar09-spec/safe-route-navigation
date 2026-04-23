@@ -1,6 +1,6 @@
 import { io } from 'socket.io-client';
 
-const SOCKET_URL = 'http://localhost:3000'; // Replace with Render backend URL
+const SOCKET_URL = 'https://safe-route-navigation.onrender.com'; // Replace with Render backend URL
 let socket;
 
 export const initializeSocket = () => {
