@@ -34,9 +34,16 @@ redisClient.connect().catch(() => console.log('Starting without Redis (set REDIS
 const authenticateToken = (req, res, next) => {
   const authHeader = req.headers['authorization'];
   const token = authHeader && authHeader.split(' ')[1];
+
+  // DEMO BYPASS: Allow 'mock_jwt_token' for hackathon/testing
+  if (token === 'mock_jwt_token') {
+    req.user = { id: '00000000-0000-0000-0000-000000000001' };
+    return next();
+  }
+
   if (!token) return res.sendStatus(401);
 
-  jwt.verify(token, process.env.JWT_SECRET, (err, user) => {
+  jwt.verify(token, process.env.JWT_SECRET || 'dev_secret', (err, user) => {
     if (err) return res.sendStatus(403);
     req.user = user;
     next();
