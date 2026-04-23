@@ -60,35 +60,43 @@ export default function GuardianScreen() {
         <Text style={styles.guardianName}>{item.name}</Text>
         <Text style={styles.guardianPhone}>{item.phone} • {item.relationship}</Text>
       </View>
-      <TouchableOpacity style={styles.deleteButton} onPress={() => handleRemoveGuardian(item.id)}>
-        <Text style={styles.deleteText}>Remove</Text>
-      </TouchableOpacity>
+      {!item.isDefault && (
+        <TouchableOpacity style={styles.deleteButton} onPress={() => handleRemoveGuardian(item.id)}>
+          <Text style={styles.deleteText}>Remove</Text>
+        </TouchableOpacity>
+      )}
     </View>
   );
+
+  const defaultContacts = [
+    { id: 'def1', name: 'Police', phone: '100', relationship: 'Emergency', isDefault: true },
+    { id: 'def2', name: 'Women Helpline', phone: '1091', relationship: 'Emergency', isDefault: true }
+  ];
+
+  const allContacts = [...defaultContacts, ...guardians];
 
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Emergency Contacts</Text>
-      <Text style={styles.subtitle}>These contacts will be notified when you trigger SOS.</Text>
+      <Text style={styles.subtitle}>These contacts will be notified instantly when you trigger SOS.</Text>
 
       <View style={styles.form}>
         <TextInput style={styles.input} placeholder="Name (e.g. Mom)" value={name} onChangeText={setName} />
         <TextInput style={styles.input} placeholder="Phone (e.g. 9876543210)" value={phone} onChangeText={setPhone} keyboardType="phone-pad" />
         <TextInput style={styles.input} placeholder="Relationship (optional)" value={relationship} onChangeText={setRelationship} />
         <TouchableOpacity style={styles.addButton} onPress={handleAddGuardian}>
-          <Text style={styles.addText}>Add Guardian</Text>
+          <Text style={styles.addText}>+ Add Guardian</Text>
         </TouchableOpacity>
       </View>
 
       <Text style={styles.listTitle}>Saved Guardians ({guardians.length}/5)</Text>
       {loading ? (
-        <ActivityIndicator size="large" color="#a29bfe" />
+        <ActivityIndicator size="large" color="#ff7675" />
       ) : (
         <FlatList
-          data={guardians}
+          data={allContacts}
           keyExtractor={(item) => item.id.toString()}
           renderItem={renderItem}
-          ListEmptyComponent={<Text style={styles.emptyText}>No guardians added yet.</Text>}
         />
       )}
     </View>

@@ -2,6 +2,7 @@ import React from 'react';
 import { View, TouchableOpacity, Text, StyleSheet, Platform } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import * as Haptics from 'expo-haptics';
+import * as Location from 'expo-location';
 import api from '../services/api';
 
 export default function BottomButtonBar() {
@@ -9,15 +10,25 @@ export default function BottomButtonBar() {
 
   const handleSOS = async () => {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-    // User wants current location sent. We will get it or use mock
-    await api.post('/sos', { lat: 0, lng: 0 }); 
-    alert('SOS Sent to ALL Guardians & Contacts!');
+    try {
+      let loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+      await api.post('/sos', { lat: loc.coords.latitude, lng: loc.coords.longitude }); 
+      alert('SOS Sent to ALL Guardians & Contacts!');
+    } catch (e) {
+      alert('SOS Sent! (Location unavailable)');
+      await api.post('/sos', { lat: 0, lng: 0 }); 
+    }
   };
 
   const handleCheckIn = async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    await api.post('/checkin', { lat: 0, lng: 0 });
-    alert('Check-in successful!');
+    try {
+      let loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+      await api.post('/checkin', { lat: loc.coords.latitude, lng: loc.coords.longitude });
+      alert('Check-in successful!');
+    } catch (e) {
+      alert('Check-in recorded! (Location unavailable)');
+    }
   };
 
   const handleReRoute = async () => {

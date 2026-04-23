@@ -15,6 +15,11 @@
           "apiKey": "AIzaSyD9QEj-BDGH9wSlexD-2I0zD8bR_VvmaQA"
         }
       }
+    },
+    "extra": {
+      "eas": {
+        "projectId": "3940ecc6-06f8-497c-9d82-49d16e271ae0"
+      }
     }
   }
 }
