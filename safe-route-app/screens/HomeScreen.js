@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { StyleSheet, View, Text, TouchableWithoutFeedback, ActivityIndicator } from 'react-native';
+import { StyleSheet, View, Text, TouchableWithoutFeedback, ActivityIndicator, TouchableOpacity } from 'react-native';
 import MapView, { Marker, Polyline, PROVIDER_DEFAULT } from 'react-native-maps';
 import * as Location from 'expo-location';
 import api from '../services/api';
@@ -99,6 +99,14 @@ export default function HomeScreen({ navigation, onHealthModeToggle }) {
             <Text style={styles.loadingText}>{loadingText}</Text>
           </View>
         )}
+
+        {/* Floating Guardians Button */}
+        <TouchableOpacity 
+          style={styles.guardiansButton} 
+          onPress={() => navigation.navigate('Guardians')}
+        >
+          <Text style={styles.guardiansIcon}>🛡️</Text>
+        </TouchableOpacity>
       </View>
     </TouchableWithoutFeedback>
   );
@@ -108,5 +116,24 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#f8f9fa' },
   map: { width: '100%', height: '100%' },
   loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#ffffff' },
-  loadingText: { marginTop: 15, fontSize: 16, color: '#2d3436', fontWeight: '600' }
+  loadingText: { marginTop: 15, fontSize: 16, color: '#2d3436', fontWeight: '600' },
+  guardiansButton: {
+    position: 'absolute',
+    top: 50,
+    right: 20,
+    backgroundColor: '#fff',
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    justifyContent: 'center',
+    alignItems: 'center',
+    elevation: 5,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+  },
+  guardiansIcon: {
+    fontSize: 24,
+  }
 });

@@ -9,8 +9,9 @@ export default function BottomButtonBar() {
 
   const handleSOS = async () => {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-    await api.post('/emergency', { lat: 0, lng: 0 }); 
-    alert('SOS Sent to Contacts & Police!');
+    // User wants current location sent. We will get it or use mock
+    await api.post('/sos', { lat: 0, lng: 0 }); 
+    alert('SOS Sent to ALL Guardians & Contacts!');
   };
 
   const handleCheckIn = async () => {

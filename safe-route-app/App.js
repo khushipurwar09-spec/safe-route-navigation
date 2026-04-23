@@ -6,6 +6,7 @@ import HomeScreen from './screens/HomeScreen';
 import FakeCallScreen from './screens/FakeCallScreen';
 import HealthModeScreen from './screens/HealthModeScreen';
 import ReportScreen from './screens/ReportScreen';
+import GuardianScreen from './screens/GuardianScreen';
 import BottomButtonBar from './components/BottomButtonBar';
 import { initializeSocket } from './services/websocket';
 import { startLocationTracking } from './services/locationTracker';
@@ -34,6 +35,7 @@ export default function App() {
           </Stack.Screen>
           <Stack.Screen name="FakeCall" component={FakeCallScreen} />
           <Stack.Screen name="Report" component={ReportScreen} />
+          <Stack.Screen name="Guardians" component={GuardianScreen} />
         </Stack.Navigator>
         {!isHealthMode && <BottomButtonBar />}
       </NavigationContainer>

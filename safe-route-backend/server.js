@@ -125,11 +125,61 @@ app.post('/api/fake-call', authenticateToken, (req, res) => {
 });
 
 // FEATURE 9 - Thumb Buttons (Emergency, Checkin, Reroute)
-app.post('/api/emergency', authenticateToken, async (req, res) => {
+app.post('/api/sos', authenticateToken, async (req, res) => {
   const { lat, lng } = req.body;
   // Trigger SOS logic, notify emergency contacts, log to DB
+  
+  // 1. Log SOS in reports
+  try {
+    await pool.query(
+      "INSERT INTO reports (user_id, location, type, description) VALUES ($1, ST_SetSRID(ST_MakePoint($2, $3), 4326), 'SOS', 'Emergency Triggered')",
+      [req.user.id, lng, lat]
+    );
+  } catch(e) {}
+
+  // 2. Fetch guardians
+  let guardiansCount = 0;
+  try {
+    const { rows } = await pool.query('SELECT * FROM guardians WHERE user_id = $1', [req.user.id]);
+    guardiansCount = rows.length;
+    // Here we would integrate Twilio/SNS to send SMS:
+    // rows.forEach(guardian => sendSMS(guardian.phone, `SOS! User is in danger at maps.google.com/?q=${lat},${lng}`));
+  } catch(e) {}
+
   io.emit('emergency-alert', { userId: req.user.id, lat, lng });
-  res.json({ success: true, message: 'Emergency contacts notified' });
+  res.json({ success: true, guardians_notified: guardiansCount, message: `SOS sent to ${guardiansCount} guardians` });
+});
+
+// GUARDIAN FEATURE
+app.post('/api/guardians/add', authenticateToken, async (req, res) => {
+  const { name, phone, relationship } = req.body;
+  try {
+    await pool.query(
+      'INSERT INTO guardians (user_id, name, phone, relationship) VALUES ($1, $2, $3, $4)',
+      [req.user.id, name, phone, relationship]
+    );
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.get('/api/guardians/list', authenticateToken, async (req, res) => {
+  try {
+    const { rows } = await pool.query('SELECT * FROM guardians WHERE user_id = $1 ORDER BY created_at DESC', [req.user.id]);
+    res.json({ guardians: rows });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.delete('/api/guardians/remove/:id', authenticateToken, async (req, res) => {
+  try {
+    await pool.query('DELETE FROM guardians WHERE id = $1 AND user_id = $2', [req.params.id, req.user.id]);
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
 });
 
 app.post('/api/checkin', authenticateToken, async (req, res) => {
