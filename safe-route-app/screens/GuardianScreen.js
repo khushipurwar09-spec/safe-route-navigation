@@ -1,8 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, TouchableOpacity, FlatList, StyleSheet, Alert, ActivityIndicator } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, FlatList, StyleSheet, Alert, ActivityIndicator, Dimensions } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import api from '../services/api';
 
-export default function GuardianScreen() {
+const { width } = Dimensions.get('window');
+
+const STORAGE_KEY = '@guardians_cache';
+
+export default function GuardianScreen({ navigation }) {
   const [guardians, setGuardians] = useState([]);
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
@@ -10,63 +15,55 @@ export default function GuardianScreen() {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
+    loadCachedGuardians();
     fetchGuardians();
   }, []);
+
+  const loadCachedGuardians = async () => {
+    try {
+      const cached = await AsyncStorage.getItem(STORAGE_KEY);
+      if (cached) setGuardians(JSON.parse(cached));
+    } catch (e) { console.log("Cache load error", e); }
+  };
 
   const fetchGuardians = async () => {
     setLoading(true);
     try {
       const res = await api.get('/guardians/list');
-      setGuardians(res.data.guardians || []);
+      const list = res.data.guardians || [];
+      setGuardians(list);
+      await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(list));
     } catch (error) {
-      console.error(error);
+      console.log("Fetch error, using cache if available");
     }
     setLoading(false);
   };
 
   const handleAddGuardian = async () => {
     if (!name || !phone) {
-      Alert.alert('Error', 'Name and phone number are required');
+      Alert.alert('Missing Info', 'Please provide a name and phone number');
       return;
     }
-    if (guardians.length >= 5) {
-      Alert.alert('Limit Reached', 'You can only have up to 5 guardians.');
-      return;
-    }
-    
     try {
+      setLoading(true);
       await api.post('/guardians/add', { name, phone, relationship });
-      setName('');
-      setPhone('');
-      setRelationship('');
-      fetchGuardians();
+      setName(''); setPhone(''); setRelationship('');
+      await fetchGuardians();
     } catch (error) {
-      Alert.alert('Error', 'Failed to add guardian');
+      Alert.alert('Error', 'Could not save guardian. Check your connection.');
+    } finally {
+      setLoading(false);
     }
   };
 
   const handleRemoveGuardian = async (id) => {
     try {
       await api.delete(`/guardians/remove/${id}`);
-      fetchGuardians();
+      await fetchGuardians();
     } catch (error) {
       Alert.alert('Error', 'Failed to remove guardian');
     }
   };
-
-  const renderItem = ({ item }) => (
-    <View style={styles.guardianCard}>
-      <View>
-        <Text style={styles.guardianName}>{item.name}</Text>
-        <Text style={styles.guardianPhone}>{item.phone} • {item.relationship}</Text>
-      </View>
-      {!item.isDefault && (
-        <TouchableOpacity style={styles.deleteButton} onPress={() => handleRemoveGuardian(item.id)}>
-          <Text style={styles.deleteText}>Remove</Text>
-        </TouchableOpacity>
-      )}
-    </View>
-  );
 
   const defaultContacts = [
     { id: 'def1', name: 'Police', phone: '100', relationship: 'Emergency', isDefault: true },
@@ -77,45 +74,58 @@ export default function GuardianScreen() {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Emergency Contacts</Text>
-      <Text style={styles.subtitle}>These contacts will be notified instantly when you trigger SOS.</Text>
+      <View style={styles.header}>
+        <TouchableOpacity onPress={() => navigation.goBack()}>
+          <Text style={styles.backBtn}>←</Text>
+        </TouchableOpacity>
+        <Text style={styles.title}>Guardians</Text>
+      </View>
 
       <View style={styles.form}>
-        <TextInput style={styles.input} placeholder="Name (e.g. Mom)" value={name} onChangeText={setName} />
-        <TextInput style={styles.input} placeholder="Phone (e.g. 9876543210)" value={phone} onChangeText={setPhone} keyboardType="phone-pad" />
-        <TextInput style={styles.input} placeholder="Relationship (optional)" value={relationship} onChangeText={setRelationship} />
-        <TouchableOpacity style={styles.addButton} onPress={handleAddGuardian}>
-          <Text style={styles.addText}>+ Add Guardian</Text>
+        <Text style={styles.label}>Add New Guardian</Text>
+        <TextInput style={styles.input} placeholder="Full Name" placeholderTextColor="#64748b" value={name} onChangeText={setName} />
+        <TextInput style={styles.input} placeholder="Phone Number" placeholderTextColor="#64748b" value={phone} onChangeText={setPhone} keyboardType="phone-pad" />
+        <TextInput style={styles.input} placeholder="Relationship (e.g. Sister)" placeholderTextColor="#64748b" value={relationship} onChangeText={setRelationship} />
+        <TouchableOpacity style={styles.addButton} onPress={handleAddGuardian} disabled={loading}>
+          {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.addText}>Secure Contact</Text>}
         </TouchableOpacity>
       </View>
 
-      <Text style={styles.listTitle}>Saved Guardians ({guardians.length}/5)</Text>
-      {loading ? (
-        <ActivityIndicator size="large" color="#ff7675" />
-      ) : (
-        <FlatList
-          data={allContacts}
-          keyExtractor={(item) => item.id.toString()}
-          renderItem={renderItem}
-        />
-      )}
+      <FlatList
+        data={allContacts}
+        keyExtractor={(item) => item.id.toString()}
+        renderItem={({ item }) => (
+          <View style={styles.card}>
+            <View>
+              <Text style={styles.guardianName}>{item.name}</Text>
+              <Text style={styles.guardianInfo}>{item.phone} • {item.relationship}</Text>
+            </View>
+            {!item.isDefault && (
+              <TouchableOpacity style={styles.deleteBtn} onPress={() => handleRemoveGuardian(item.id)}>
+                <Text style={styles.deleteText}>Remove</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        )}
+        contentContainerStyle={{ paddingBottom: 40 }}
+      />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f8f9fa', padding: 20, paddingTop: 50 },
-  title: { fontSize: 28, fontWeight: 'bold', color: '#2d3436' },
-  subtitle: { fontSize: 14, color: '#636e72', marginBottom: 20 },
-  form: { backgroundColor: '#fff', padding: 15, borderRadius: 15, elevation: 2, marginBottom: 20 },
-  input: { borderBottomWidth: 1, borderBottomColor: '#dfe6e9', paddingVertical: 10, marginBottom: 15, fontSize: 16 },
-  addButton: { backgroundColor: '#a29bfe', padding: 15, borderRadius: 10, alignItems: 'center' },
+  container: { flex: 1, backgroundColor: '#020617', paddingHorizontal: 20 },
+  header: { flexDirection: 'row', alignItems: 'center', paddingTop: 60, marginBottom: 30 },
+  backBtn: { color: '#fff', fontSize: 30, marginRight: 20 },
+  title: { fontSize: 28, fontWeight: 'bold', color: '#fff' },
+  form: { backgroundColor: 'rgba(15, 23, 42, 0.8)', padding: 20, borderRadius: 20, marginBottom: 30, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' },
+  label: { color: '#94a3b8', fontSize: 14, marginBottom: 15, fontWeight: '600' },
+  input: { backgroundColor: '#0f172a', borderRadius: 12, padding: 12, color: '#fff', marginBottom: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' },
+  addButton: { backgroundColor: '#6366f1', padding: 15, borderRadius: 12, alignItems: 'center', marginTop: 10 },
   addText: { color: '#fff', fontWeight: 'bold', fontSize: 16 },
-  listTitle: { fontSize: 18, fontWeight: 'bold', color: '#2d3436', marginBottom: 10 },
-  guardianCard: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#fff', padding: 15, borderRadius: 10, marginBottom: 10, elevation: 1 },
-  guardianName: { fontSize: 16, fontWeight: 'bold', color: '#2d3436' },
-  guardianPhone: { fontSize: 14, color: '#636e72', marginTop: 4 },
-  deleteButton: { backgroundColor: '#ff7675', padding: 8, borderRadius: 5 },
-  deleteText: { color: '#fff', fontSize: 12, fontWeight: 'bold' },
-  emptyText: { textAlign: 'center', color: '#b2bec3', marginTop: 20 }
+  card: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: 'rgba(15, 23, 42, 0.5)', padding: 15, borderRadius: 15, marginBottom: 10, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' },
+  guardianName: { color: '#fff', fontSize: 16, fontWeight: '700' },
+  guardianInfo: { color: '#94a3b8', fontSize: 13, marginTop: 4 },
+  deleteBtn: { backgroundColor: 'rgba(239, 68, 68, 0.1)', padding: 8, borderRadius: 8 },
+  deleteText: { color: '#ef4444', fontSize: 12, fontWeight: 'bold' }
 });

@@ -49,8 +49,9 @@ app.get('/', (req, res) => res.send('Safe Route Backend Running'));
 
 // Auth Routes (Mocked for simplicity)
 app.post('/api/auth/register', async (req, res) => {
-    // Basic mock registration
-    res.json({ token: jwt.sign({ id: 1 }, process.env.JWT_SECRET || 'dev_secret') });
+    // Return a consistent mock UUID for the dev user to match Supabase UUID expectations
+    const MOCK_UUID = '00000000-0000-0000-0000-000000000001';
+    res.json({ token: jwt.sign({ id: MOCK_UUID }, process.env.JWT_SECRET || 'dev_secret') });
 });
 
 // FEATURE 1 - Fastest Route

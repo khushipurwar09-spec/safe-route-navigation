@@ -1,15 +1,20 @@
 {
   "expo": {
-    "name": "Raksha",
+    "name": "Rakhsha",
     "slug": "raksha-app",
     "version": "1.0.0",
     "orientation": "portrait",
     "userInterfaceStyle": "light",
+    "icon": "./assets/icon.png",
     "ios": {
       "supportsTablet": true
     },
     "android": {
       "package": "com.khushipurwar.saferoute",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/icon.png",
+        "backgroundColor": "#ffffff"
+      },
       "config": {
         "googleMaps": {
           "apiKey": "AIzaSyD9QEj-BDGH9wSlexD-2I0zD8bR_VvmaQA"
