@@ -7,6 +7,7 @@ import FakeCallScreen from './screens/FakeCallScreen';
 import HealthModeScreen from './screens/HealthModeScreen';
 import ReportScreen from './screens/ReportScreen';
 import GuardianScreen from './screens/GuardianScreen';
+import LoginScreen from './screens/LoginScreen';
 import BottomButtonBar from './components/BottomButtonBar';
 import { initializeSocket } from './services/websocket';
 import { startLocationTracking } from './services/locationTracker';
@@ -27,9 +28,10 @@ export default function App() {
 
   return (
     <View style={styles.container}>
-      <StatusBar style="dark" />
+      <StatusBar barStyle="light-content" />
       <NavigationContainer>
-        <Stack.Navigator screenOptions={{ headerShown: false }}>
+        <Stack.Navigator initialRouteName="Login" screenOptions={{ headerShown: false }}>
+          <Stack.Screen name="Login" component={LoginScreen} />
           <Stack.Screen name="Home">
             {(props) => <HomeScreen {...props} onHealthModeToggle={() => setIsHealthMode(true)} />}
           </Stack.Screen>
@@ -37,7 +39,7 @@ export default function App() {
           <Stack.Screen name="Report" component={ReportScreen} />
           <Stack.Screen name="Guardians" component={GuardianScreen} />
         </Stack.Navigator>
-        {!isHealthMode && <BottomButtonBar />}
+        <BottomButtonBar />
       </NavigationContainer>
     </View>
   );
@@ -46,6 +48,6 @@ export default function App() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: '#020617',
   },
 });

@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { StyleSheet, View, Text, TouchableWithoutFeedback, ActivityIndicator, TouchableOpacity, TextInput, Dimensions } from 'react-native';
-import MapView, { Marker, Circle, PROVIDER_DEFAULT } from 'react-native-maps';
+import MapView, { Marker, Circle, Polyline, PROVIDER_DEFAULT } from 'react-native-maps';
 import * as Location from 'expo-location';
 import api from '../services/api';
 
@@ -12,6 +12,8 @@ export default function HomeScreen({ navigation, onHealthModeToggle }) {
   const [refuges, setRefuges] = useState([]);
   const [reports, setReports] = useState([]);
   const [destination, setDestination] = useState('');
+  const [routeCoords, setRouteCoords] = useState([]);
+  const [mapType, setMapType] = useState('standard');
   const [loadingText, setLoadingText] = useState('Initializing Safe Zone...');
   const [lastTap, setLastTap] = useState(null);
 
@@ -24,9 +26,7 @@ export default function HomeScreen({ navigation, onHealthModeToggle }) {
       }
 
       let lastLoc = await Location.getLastKnownPositionAsync({});
-      if (lastLoc) {
-        setLocation(lastLoc.coords);
-      }
+      if (lastLoc) setLocation(lastLoc.coords);
 
       let currentLoc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
       setLocation(currentLoc.coords);
@@ -43,6 +43,33 @@ export default function HomeScreen({ navigation, onHealthModeToggle }) {
       }
     })();
   }, []);
+
+  const calculateSafeRoute = () => {
+    if (!destination || !location) return;
+    
+    const destLat = location.latitude + 0.005; 
+    const destLng = location.longitude + 0.005;
+
+    const mockRoute = [
+      { latitude: location.latitude, longitude: location.longitude },
+      { latitude: location.latitude + 0.002, longitude: location.longitude + 0.001 },
+      { latitude: location.latitude + 0.003, longitude: location.longitude + 0.004 },
+      { latitude: destLat, longitude: destLng },
+    ];
+    
+    setRouteCoords(mockRoute);
+    
+    mapRef.current?.animateToRegion({
+      latitude: (location.latitude + destLat) / 2,
+      longitude: (location.longitude + destLng) / 2,
+      latitudeDelta: 0.01,
+      longitudeDelta: 0.01,
+    }, 1000);
+  };
+
+  const toggleMapType = () => {
+    setMapType(prev => prev === 'standard' ? 'satellite' : 'standard');
+  };
 
   const recenter = () => {
     if (location && mapRef.current) {
@@ -70,6 +97,7 @@ export default function HomeScreen({ navigation, onHealthModeToggle }) {
               ref={mapRef}
               style={styles.map}
               provider={PROVIDER_DEFAULT}
+              mapType={mapType}
               initialRegion={{
                 latitude: location.latitude,
                 longitude: location.longitude,
@@ -78,39 +106,48 @@ export default function HomeScreen({ navigation, onHealthModeToggle }) {
               }}
               showsUserLocation={true}
               showsMyLocationButton={false}
-              customMapStyle={darkMapStyle}
+              customMapStyle={mapType === 'standard' ? midnightMapStyle : []}
             >
-              {/* Overlay Safe/Moderate/Danger Zones based on reports */}
+              {/* Safest Route Polyline */}
+              {routeCoords.length > 0 && (
+                <Polyline
+                  coordinates={routeCoords}
+                  strokeColor="#00f2fe" 
+                  strokeWidth={6}
+                />
+              )}
+
+              {/* Overlay Safe/Moderate/Danger Zones */}
               {reports.map((report, index) => {
-                const isDanger = report.type.toLowerCase().includes('danger') || report.type.toLowerCase().includes('sos');
+                const isDanger = report.type?.toLowerCase().includes('danger') || report.type?.toLowerCase().includes('sos');
                 return (
                   <Circle
                     key={`overlay-${index}`}
                     center={{ latitude: report.lat, longitude: report.lng }}
-                    radius={200}
-                    fillColor={isDanger ? 'rgba(239, 68, 68, 0.2)' : 'rgba(245, 158, 11, 0.2)'}
+                    radius={250}
+                    fillColor={isDanger ? 'rgba(239, 68, 68, 0.3)' : 'rgba(245, 158, 11, 0.3)'}
                     strokeColor={isDanger ? '#ef4444' : '#f59e0b'}
-                    strokeWidth={1}
+                    strokeWidth={2}
                   />
                 );
               })}
 
-              {/* Render Safe Refuges (Green Glow) */}
+              {/* Render SAFE HAVENS (Hospitals, Police Stations) */}
               {refuges.map((refuge, index) => (
                 <Marker
-                  key={`refuge-${index}`}
+                  key={`haven-${index}`}
                   coordinate={{ latitude: refuge.lat, longitude: refuge.lng }}
-                  title={refuge.name}
-                  description={refuge.type}
+                  title={`SAFE HAVEN: ${refuge.name}`}
+                  description={`${refuge.type} - Emergency Support Available`}
                 >
-                   <View style={styles.refugeMarker}>
-                     <View style={styles.refugeDot} />
+                   <View style={styles.havenMarker}>
+                     <Text style={{fontSize: 14}}>🛡️</Text>
                    </View>
                 </Marker>
               ))}
             </MapView>
 
-            {/* Search Bar / Destination */}
+            {/* Top Search Bar */}
             <View style={styles.searchContainer}>
                <TextInput
                  style={styles.searchInput}
@@ -119,14 +156,23 @@ export default function HomeScreen({ navigation, onHealthModeToggle }) {
                  value={destination}
                  onChangeText={setDestination}
                />
-               <TouchableOpacity style={styles.searchBtn} onPress={() => alert('Calculating Safest Path...')}>
-                 <Text style={{fontSize: 18}}>🚀</Text>
+               <TouchableOpacity style={styles.searchBtn} onPress={calculateSafeRoute}>
+                 <Text style={{fontSize: 20}}>🚀</Text>
                </TouchableOpacity>
             </View>
 
-            <TouchableOpacity style={styles.recenterBtn} onPress={recenter}>
-              <Text style={{fontSize: 20}}>🎯</Text>
-            </TouchableOpacity>
+            {/* Side Controls */}
+            <View style={styles.sideControls}>
+               <TouchableOpacity style={styles.sideBtn} onPress={toggleMapType}>
+                  <Text style={{fontSize: 20}}>{mapType === 'standard' ? '🛰️' : '🗺️'}</Text>
+               </TouchableOpacity>
+               <TouchableOpacity style={styles.sideBtn} onPress={recenter}>
+                  <Text style={{fontSize: 22}}>🎯</Text>
+               </TouchableOpacity>
+               <TouchableOpacity style={styles.sideBtn} onPress={() => navigation.navigate('Guardians')}>
+                  <Text style={{fontSize: 22}}>🛡️</Text>
+               </TouchableOpacity>
+            </View>
           </View>
         ) : (
           <View style={styles.loadingContainer}>
@@ -134,20 +180,16 @@ export default function HomeScreen({ navigation, onHealthModeToggle }) {
             <Text style={styles.loadingText}>{loadingText}</Text>
           </View>
         )}
-
-        <TouchableOpacity style={styles.guardiansButton} onPress={() => navigation.navigate('Guardians')}>
-          <Text style={styles.guardiansIcon}>🛡️</Text>
-        </TouchableOpacity>
       </View>
     </TouchableWithoutFeedback>
   );
 }
 
-const darkMapStyle = [
-  { "elementType": "geometry", "stylers": [{ "color": "#212121" }] },
-  { "elementType": "labels.icon", "stylers": [{ "visibility": "off" }] },
+const midnightMapStyle = [
+  { "elementType": "geometry", "stylers": [{ "color": "#1a1c2c" }] },
   { "elementType": "labels.text.fill", "stylers": [{ "color": "#757575" }] },
-  { "pathType": "road", "elementType": "geometry", "stylers": [{ "color": "#2c2c2c" }] }
+  { "pathType": "road", "elementType": "geometry", "stylers": [{ "color": "#2c2c2c" }] },
+  { "featureType": "water", "elementType": "geometry", "stylers": [{ "color": "#1e1b4b" }] }
 ];
 
 const styles = StyleSheet.create({
@@ -159,53 +201,42 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 55,
     left: 20,
-    right: 80,
+    right: 20,
     flexDirection: 'row',
-    backgroundColor: 'rgba(15, 23, 42, 0.9)',
+    backgroundColor: 'rgba(15, 23, 42, 0.95)',
     borderRadius: 15,
-    paddingHorizontal: 15,
-    height: 50,
+    paddingHorizontal: 20,
+    height: 60,
     alignItems: 'center',
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.1)',
+    elevation: 15,
   },
-  searchInput: { flex: 1, color: '#fff', fontSize: 15 },
-  searchBtn: { marginLeft: 10 },
-  recenterBtn: {
+  searchInput: { flex: 1, color: '#fff', fontSize: 16 },
+  searchBtn: { marginLeft: 15 },
+  sideControls: {
     position: 'absolute',
     right: 20,
-    bottom: 120,
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    backgroundColor: 'rgba(15, 23, 42, 0.9)',
+    top: 140,
+    alignItems: 'center',
+  },
+  sideBtn: {
+    width: 55,
+    height: 55,
+    borderRadius: 15,
+    backgroundColor: 'rgba(15, 23, 42, 0.95)',
     justifyContent: 'center',
     alignItems: 'center',
+    marginBottom: 15,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.1)',
+    elevation: 10,
   },
-  guardiansButton: {
-    position: 'absolute',
-    top: 55,
-    right: 20,
-    backgroundColor: 'rgba(15, 23, 42, 0.9)',
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
-  },
-  guardiansIcon: { fontSize: 24 },
-  refugeMarker: {
-    width: 20, height: 20, borderRadius: 10,
-    backgroundColor: 'rgba(34, 197, 94, 0.3)',
+  havenMarker: {
+    width: 32, height: 32, borderRadius: 16,
+    backgroundColor: 'rgba(34, 197, 94, 0.4)',
     justifyContent: 'center', alignItems: 'center',
-  },
-  refugeDot: {
-    width: 8, height: 8, borderRadius: 4,
-    backgroundColor: '#22c55e',
-    shadowColor: '#22c55e', shadowRadius: 5, shadowOpacity: 0.8,
+    borderWidth: 2, borderColor: '#22c55e',
+    shadowColor: '#22c55e', shadowRadius: 15, shadowOpacity: 1,
   }
 });
